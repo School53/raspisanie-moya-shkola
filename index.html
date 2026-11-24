@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Расписание уроков</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="theme-color" content="#1a5fb4">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { background: #f4f6f9; color: #1e293b; padding: 16px; padding-bottom: 90px; max-width: 600px; margin: 0 auto; overflow-x: hidden; }
+  .header { background: #1a5fb4; color: #fff; padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 12px; }
+  .badge { display: inline-block; background: #22c55e; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-top: 8px; }
+  .badge.stale { background: #f59e0b; }
+  .btn-vk { display: block; text-align: center; background: #0077FF; color: #fff; text-decoration: none; padding: 12px; border-radius: 12px; font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+  .btn-notify { display: block; width: 100%; background: #10b981; color: #fff; border: none; padding: 12px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
+  .btn-notify.on { background: #e2e8f0; color: #334155; }
+  .btn-inst { display: block; width: 100%; background: #6366f1; color: #fff; border: none; padding: 12px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 12px; }
+  .alert-global { background: #fef3c7; border-left: 5px solid #f59e0b; color: #78350f; padding: 14px; border-radius: 12px; margin-bottom: 12px; font-size: 15px; }
+  .alert-class { background: #e0f2fe; border-left: 5px solid #0284c7; color: #0c4a6e; padding: 12px; border-radius: 12px; margin-bottom: 12px; font-size: 15px; }
+  .alert-stale { background: #fee2e2; border-left: 5px solid #ef4444; color: #7f1d1d; padding: 12px; border-radius: 12px; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
+  .card { background: #fff; padding: 16px; border-radius: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  select { width: 100%; padding: 12px; font-size: 18px; font-weight: 700; border: 2px solid #cbd5e1; border-radius: 12px; margin-top: 6px; }
+
+  /* Переключатель Сегодня/Завтра */
+  .day-switch { display: flex; background: #e2e8f0; border-radius: 14px; padding: 4px; margin-bottom: 14px; }
+  .day-switch button { flex: 1; border: none; background: transparent; padding: 12px 0; font-size: 15px; font-weight: 700; color: #475569; border-radius: 10px; cursor: pointer; transition: all .2s; }
+  .day-switch button.active { background: #1a5fb4; color: #fff; box-shadow: 0 2px 6px rgba(26,95,180,0.4); }
+  .day-switch button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .swipe-area { position: relative; overflow: hidden; touch-action: pan-y; }
+  .swipe-hint { text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 8px; }
+
+  .lesson { background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 10px; display: flex; align-items: center; border: 2px solid transparent; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+  .lesson.changed { border-color: #f59e0b; background: #fffbeb; }
+  .num { width: 34px; height: 34px; background: #e0edff; color: #1a5fb4; font-weight: 800; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0; }
+  .subj { flex-grow: 1; font-size: 16px; font-weight: 600; }
+  .tag-chg { background: #f59e0b; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 6px; margin-left: 6px; }
+  .cab { background: #f1f5f9; font-weight: 700; font-size: 14px; padding: 6px 10px; border-radius: 8px; margin-left: 8px; }
+  .btn-share { width: 100%; background: #0077FF; color: #fff; border: none; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+  .empty-state { text-align: center; padding: 30px 10px; color: #64748b; }
+
+  .update-banner {
+    position: fixed; left: 12px; right: 12px; bottom: 12px; max-width: 576px; margin: 0 auto;
+    background: #0f172a; color: #fff; padding: 14px 16px; border-radius: 16px;
+    display: none; align-items: center; justify-content: space-between; gap: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3); z-index: 999;
+  }
+  .update-banner button { background: #22c55e; color: #fff; border: none; padding: 10px 16px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+</style></head><body>
+
+  <div class="header">
+    <h1>Расписание уроков</h1>
+    <p id="curDateLbl">—</p>
+    <div class="badge" id="freshBadge">Актуально</div>
+  </div>
+
+  <a href="https://vk.ru/club243545366" target="_blank" class="btn-vk">🔵 Группа ВКонтакте (уведомления)</a>
+  <button id="nBtn" class="btn-notify" onclick="enableNotify()">🔔 Включить уведомления в приложении</button>
+  <button id="instBtn" class="btn-inst" onclick="installApp()">📲 Установить приложение на экран</button>
+
+  <div id="globalBanner"></div>
+
+  <div class="card">
+    <label>Выберите свой класс:</label>
+    <select id="cSel" onchange="onClassChange(this.value)"></select>
+  </div>
+
+  <div class="day-switch">
+    <button id="btnToday" class="active" onclick="switchDay('today')">Сегодня</button>
+    <button id="btnTomorrow" onclick="switchDay('tomorrow')">Завтра</button>
+  </div>
+  <div class="swipe-hint">👈 Листайте влево/вправо для переключения дня 👉</div>
+
+  <div id="cAlert"></div>
+  <div id="staleAlert"></div>
+  <div id="lList" class="swipe-area"></div>
+  <button class="btn-share" onclick="shareSched()">📤 Поделиться в чат класса (MAX / VK)</button>
+
+  <div class="update-banner" id="updBanner">
+    <span>🔄 Доступна новая версия приложения</span>
+    <button onclick="applyUpdate()">Обновить</button>
+  </div>
+
+<script>
+  function safeGet(k) { try { return localStorage.getItem(k); } catch(e) { return null; } }
+  function safeSet(k, v) { try { localStorage.setItem(k, v); } catch(e) {} }
+
+  const sel = document.getElementById('cSel');
+  const listEl = document.getElementById('lList');
+  const alEl = document.getElementById('cAlert');
+  const staleEl = document.getElementById('staleAlert');
+  const nBtn = document.getElementById('nBtn');
+  const instBtn = document.getElementById('instBtn');
+  const curDateLbl = document.getElementById('curDateLbl');
+  const freshBadge = document.getElementById('freshBadge');
+  const btnToday = document.getElementById('btnToday');
+  const btnTomorrow = document.getElementById('btnTomorrow');
+
+  let currentView = 'today';   // 'today' | 'tomorrow'
+  let todayData = null;        // payload для сегодня (или fallback-дня)
+  let tomorrowData = null;     // payload для завтра (если есть)
+  let isTodayStale = false;    // true если today-файл на сервере не совпадает с реальной сегодняшней датой
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function isoDate(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function ruDate(d) { return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear(); }
+
+  async function fetchDayJson(isoStr) {
+    try {
+      const resp = await fetch('data/' + isoStr + '.json', { cache: 'no-store' });
+      if (!resp.ok) return null;
+      return await resp.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function findLatestAvailable(fromDate, maxDaysBack) {
+    // Ищем ближайший существующий файл расписания, уходя назад по датам
+    for (let i = 0; i <= maxDaysBack; i++) {
+      const d = new Date(fromDate);
+      d.setDate(d.getDate() - i);
+      const data = await fetchDayJson(isoDate(d));
+      if (data) return { data, usedDate: d, offsetDays: i };
+    }
+    return null;
+  }
+
+  function fillClassSelector(classesObj) {
+    const savedCls = safeGet('saved_cls');
+    sel.innerHTML = '';
+    Object.keys(classesObj).forEach(c => {
+      const o = document.createElement('option');
+      o.value = c;
+      o.textContent = c + ' класс';
+      sel.appendChild(o);
+    });
+    if (savedCls && classesObj[savedCls]) {
+      sel.value = savedCls;
+    } else if (sel.options.length > 0) {
+      sel.selectedIndex = 0;
+    }
+  }
+
+  function renderGlobalBanner(payload) {
+    const g = (payload && payload.global_announcement) || '';
+    const gBox = document.getElementById('globalBanner');
+    if (g) {
+      const safe = g.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').split(String.fromCharCode(10)).join('<br>');
+      gBox.innerHTML = `<div class="alert-global"><strong>📢 Объявление:</strong><br>${safe}</div>`;
+    } else {
+      gBox.innerHTML = '';
+    }
+  }
+
+  function renderLessons(payload, cls) {
+    if (!payload) {
+      listEl.innerHTML = '<div class="empty-state">📭 Расписание пока не опубликовано</div>';
+      alEl.innerHTML = '';
+      return;
+    }
+    const ann = (payload.class_announcements || {})[cls];
+    alEl.innerHTML = ann ? `<div class="alert-class"><strong>ℹ️ Для ${cls}:</strong><br>${ann}</div>` : '';
+
+    const items = (payload.classes || {})[cls] || [];
+    if (items.length === 0) {
+      listEl.innerHTML = '<div class="empty-state">📭 Для этого класса нет уроков в расписании</div>';
+      return;
+    }
+
+    const dateKey = payload.date_iso;
+    const curMap = {};
+    items.forEach(i => { curMap[String(i.num)] = i.subj + '|' + i.cab; });
+    const curJson = JSON.stringify(curMap);
+
+    const lastKey = 'last_' + dateKey + '_' + cls;
+    const baseKey = 'base_' + dateKey + '_' + cls;
+    const lastJson = safeGet(lastKey);
+    let baseJson = safeGet(baseKey);
+
+    if (lastJson && lastJson !== curJson) {
+      baseJson = lastJson;
+      safeSet(baseKey, baseJson);
+    }
+    safeSet(lastKey, curJson);
+
+    let baseMap = {};
+    if (baseJson) {
+      try { baseMap = JSON.parse(baseJson); } catch(e) {}
+    }
+    const hasBase = Object.keys(baseMap).length > 0;
+    let chg = 0;
+
+    listEl.innerHTML = items.map(i => {
+      const k = String(i.num);
+      const s = i.subj + '|' + i.cab;
+      const isC = hasBase && baseMap[k] !== s;
+      if (isC) chg++;
+      return `<div class="lesson ${isC ? 'changed' : ''}"><div class="num">${i.num}</div><div class="subj">${i.subj}${isC ? '<span class="tag-chg">изменено</span>' : ''}</div>${i.cab ? `<div class="cab">каб. ${i.cab}</div>` : ''}</div>`;
+    }).join('');
+
+    if (hasBase) {
+      Object.keys(baseMap).forEach(oldK => { if (!(oldK in curMap)) chg++; });
+    }
+
+    if (chg > 0 && currentView === 'today') {
+      const notifiedVer = safeGet('notified_' + dateKey + '_' + cls);
+      if (notifiedVer !== curJson) {
+        safeSet('notified_' + dateKey + '_' + cls, curJson);
+        sendSysNotify('Изменения в расписании (' + cls + ')', 'Обновлено пунктов: ' + chg);
+      }
+    }
+  }
+
+  function renderStaleWarning() {
+    if (currentView === 'today' && isTodayStale && todayData) {
+      staleEl.innerHTML = `<div class="alert-stale">⚠️ Это последнее доступное расписание (на ${todayData.date}). Расписание на сегодня ещё не опубликовано.</div>`;
+    } else {
+      staleEl.innerHTML = '';
+    }
+  }
+
+  function renderCurrent() {
+    const payload = currentView === 'today' ? todayData : tomorrowData;
+    if (payload) {
+      curDateLbl.textContent = (currentView === 'today' ? '' : 'на ') + payload.date + (payload.day_name ? ' (' + payload.day_name.toLowerCase() + ')' : '');
+      freshBadge.textContent = (currentView === 'today' && isTodayStale) ? 'Не обновлено' : 'Актуально';
+      freshBadge.className = 'badge' + ((currentView === 'today' && isTodayStale) ? ' stale' : '');
+      fillClassSelector(payload.classes || {});
+      renderGlobalBanner(payload);
+    } else {
+      curDateLbl.textContent = currentView === 'today' ? 'нет данных' : 'ещё не опубликовано';
+      freshBadge.textContent = '—';
+      sel.innerHTML = '';
+    }
+    renderStaleWarning();
+    if (sel.value) renderLessons(payload, sel.value);
+    else renderLessons(null, null);
+  }
+
+  function onClassChange(cls) {
+    safeSet('saved_cls', cls);
+    const payload = currentView === 'today' ? todayData : tomorrowData;
+    renderLessons(payload, cls);
+  }
+
+  function switchDay(view) {
+    if (view === 'tomorrow' && !tomorrowData) {
+      // Показываем пустое состояние, но переключаем, чтобы было видно сообщение
+    }
+    currentView = view;
+    btnToday.classList.toggle('active', view === 'today');
+    btnTomorrow.classList.toggle('active', view === 'tomorrow');
+    renderCurrent();
+  }
+
+  async function loadAllData() {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+
+    const todayResult = await findLatestAvailable(now, 5);
+    if (todayResult) {
+      todayData = todayResult.data;
+      isTodayStale = todayResult.offsetDays > 0;
+    } else {
+      todayData = null;
+      isTodayStale = false;
+    }
+
+    tomorrowData = await fetchDayJson(isoDate(tomorrow));
+
+    renderCurrent();
+  }
+
+  // ---------- СВАЙП ----------
+  let touchStartX = 0;
+  listEl.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+  listEl.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].screenX - touchStartX;
+    if (Math.abs(dx) < 50) return;
+    if (dx < 0 && currentView === 'today') switchDay('tomorrow');
+    if (dx > 0 && currentView === 'tomorrow') switchDay('today');
+  }, { passive: true });
+
+  // ---------- УСТАНОВКА PWA ----------
+  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+    instBtn.style.display = 'none';
+  }
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+  });
+  function installApp() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => { deferredPrompt = null; instBtn.style.display = 'none'; });
+    } else {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      alert(isIOS
+        ? 'На iPhone нажмите «Поделиться» (внизу) → «На экран Домой».'
+        : 'В Chrome нажмите три точки (⋮) справа вверху → «Добавить на главный экран» → «Установить».');
+    }
+  }
+
+  // ---------- УВЕДОМЛЕНИЯ ----------
+  function sendSysNotify(title, bodyText) {
+    if (safeGet('n_on') !== '1') return;
+    if (navigator.vibrate) navigator.vibrate();
+    if ('serviceWorker' in navigator && 'Notification' in window && Notification.permission === 'granted') {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(title, { body: bodyText, icon: 'icon.png', badge: 'icon.png', tag: 'rasp-upd' });
+      }).catch(() => {
+        try { new Notification(title, { body: bodyText, icon: 'icon.png' }); } catch(e) {}
+      });
+    }
+  }
+  function updNotifyBtn() {
+    if (safeGet('n_on') === '1') {
+      nBtn.classList.add('on');
+      nBtn.textContent = '✅ Уведомления в приложении включены';
+    }
+  }
+  function enableNotify() {
+    safeSet('n_on', '1');
+    updNotifyBtn();
+    if ('Notification' in window) {
+      Notification.requestPermission().then(perm => {
+        if (perm === 'granted') {
+          sendSysNotify(document.title || 'Расписание', 'Уведомления работают!');
+        } else {
+          alert('Разрешите уведомления в настройках, чтобы получать оповещения.');
+        }
+      });
+    } else {
+      alert('Уведомления включены!');
+    }
+  }
+
+  // ---------- ПОДЕЛИТЬСЯ ----------
+  function shareSched() {
+    const cls = sel.value;
+    const payload = currentView === 'today' ? todayData : tomorrowData;
+    if (!payload || !cls) return;
+    const items = (payload.classes || {})[cls] || [];
+    const lines = [`📅 Расписание ${cls} на ${payload.date}:`];
+    items.forEach(i => lines.push(`${i.num}. ${i.subj}${i.cab ? ' (' + i.cab + ')' : ''}`));
+    lines.push(String.fromCharCode(10) + '🔗 Сайт: ' + location.href);
+    const txt = lines.join(String.fromCharCode(10));
+    if (navigator.share) {
+      navigator.share({ title: 'Расписание ' + cls, text: txt }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(txt).then(() => alert('Скопировано! Вставьте в чат класса.'));
+    } else {
+      prompt('Скопируйте расписание:', txt);
+    }
+  }
+
+  // ---------- АВТООБНОВЛЕНИЕ ПРИЛОЖЕНИЯ ----------
+  let waitingWorker = null;
+  const updBanner = document.getElementById('updBanner');
+
+  function showUpdateBanner(reg) {
+    waitingWorker = reg.waiting;
+    updBanner.style.display = 'flex';
+  }
+  function applyUpdate() {
+    if (waitingWorker) {
+      waitingWorker.postMessage('SKIP_WAITING');
+    }
+    updBanner.style.display = 'none';
+    window.location.reload();
+  }
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      if (reg.waiting) showUpdateBanner(reg);
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdateBanner(reg);
+          }
+        });
+      });
+      // Проверяем version.json раз в сессию и при возврате в приложение
+      checkVersionJson(reg);
+    }).catch(() => {});
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
+  }
+
+  async function checkVersionJson(reg) {
+    try {
+      const resp = await fetch('version.json', { cache: 'no-store' });
+      if (!resp.ok) return;
+      const v = await resp.json();
+      const lastSeen = safeGet('app_version_seen');
+      if (lastSeen && lastSeen !== v.version) {
+        reg.update();
+      }
+      safeSet('app_version_seen', v.version);
+    } catch (e) {}
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg) { reg.update(); checkVersionJson(reg); }
+      });
+    }
+  });
+
+  updNotifyBtn();
+  loadAllData();
+</script>
+</body></html>
