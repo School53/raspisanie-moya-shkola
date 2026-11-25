@@ -1,9 +1,19 @@
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', (e) => {
+  const u = new URL(e.request.url);
+  const p = u.pathname;
+  if (e.request.mode === 'navigate' || p.endsWith('/') || p.endsWith('.html') || p.endsWith('.json')) {
+    e.stopImmediatePropagation();
+    e.respondWith(fetch(e.request, { cache: 'no-store' }).catch(() =>
+      caches.match(e.request).then((r) => r || caches.match('./index.html'))));
+  }
+});
 
-const CACHE_NAME = 'raspisanie-cache-20261125155001';
+const CACHE_NAME = 'raspisanie-cache-20261125164922';
 const CORE_FILES = ['./', './index.html', './manifest.json', './icon.png'];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_FILES)).catch(() => {})
@@ -19,10 +29,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request, { cache: 'no-store' }).catch(() => caches.match('./index.html')));
-    return;
-  }
   const url = event.request.url;
   // JSON с расписанием всегда берём из сети (чтобы не показывать устаревшее),
   // с откатом на кэш при отсутствии интернета
