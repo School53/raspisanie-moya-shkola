@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'raspisanie-cache-20261125004027';
+const CACHE_NAME = 'raspisanie-cache-20261125155001';
 const CORE_FILES = ['./', './index.html', './manifest.json', './icon.png'];
 
 self.addEventListener('install', (event) => {
