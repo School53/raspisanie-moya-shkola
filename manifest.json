@@ -1,9 +1,9 @@
 {
-  "id": "/raspisanie/",
-  "name": "Расписание уроков",
+  "id": "./",
+  "name": "Расписание — Моя школа 53",
   "short_name": "Расписание 53",
-  "start_url": "/raspisanie/",
-  "scope": "/raspisanie/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f4f6f9",
   "theme_color": "#1a5fb4",
