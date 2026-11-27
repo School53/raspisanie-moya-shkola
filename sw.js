@@ -10,7 +10,7 @@ self.addEventListener('fetch', (e) => {
   }
 });
 
-const CACHE_NAME = 'raspisanie-cache-20261127133401';
+const CACHE_NAME = 'raspisanie-cache-20261127161829';
 const CORE_FILES = ['./', './index.html', './manifest.json', './icon.png'];
 
 self.addEventListener('install', (event) => {
