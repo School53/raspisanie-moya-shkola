@@ -268,7 +268,7 @@
       isTodayStale = false;
     }
 
-    tomorrowData = await fetchDayJson(isoDate(tomorrow));
+    /* NEXT_SCHOOL_DAY */ tomorrowData = await (async () => { const xs = []; for (let i = 1; i <= 7; i++) { const x = new Date(now); x.setDate(x.getDate() + i); xs.push(Promise.resolve(fetchDayJson(isoDate(x))).catch(() => null)); } const rs = await Promise.all(xs); return rs.find(r => r) || null; })(); try { btnTomorrow.textContent = (!tomorrowData || tomorrowData.date_iso === isoDate(tomorrow)) ? 'Завтра' : (tomorrowData.day_name || tomorrowData.date || 'Следующий день'); if (isTodayStale && tomorrowData && (now.getDay() === 0 || now.getDay() === 6)) { currentView = 'tomorrow'; btnToday.classList.remove('active'); btnTomorrow.classList.add('active'); } } catch (e) {}
 
     renderCurrent();
   }
